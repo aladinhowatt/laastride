@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public enum RideState { Driving, Dialogue, Ended }
-public enum PassengerId { None, Sri, Ton }
+public enum PassengerId { None, Sri, Heng, Ton, Mai, Bua, Nok, Khum, Tong }
 
 /// <summary>Shared state of one night's ride. Everything else reads from here.</summary>
 public class RideGame : MonoBehaviour
@@ -35,7 +35,9 @@ public class RideGame : MonoBehaviour
     public float calm = 70f;
     public int merit;
     public float clock;
-    public PassengerId passenger = PassengerId.None;
+    public readonly List<PassengerId> riders = new List<PassengerId>();
+    /// <summary>The most recent ghost to get in (None = empty back seat).</summary>
+    public PassengerId passenger { get { return riders.Count > 0 ? riders[riders.Count - 1] : PassengerId.None; } }
     public readonly HashSet<string> flags = new HashSet<string>();
 
     public string endTitle = "", endBody = "";
@@ -51,7 +53,27 @@ public class RideGame : MonoBehaviour
 
     public string PassengerName
     {
-        get { return passenger == PassengerId.Sri ? "ป้าศรี" : passenger == PassengerId.Ton ? "พี่ต้น" : ""; }
+        get { var d = Ghosts.Get(passenger); return d != null ? d.name : ""; }
+    }
+
+    /// <summary>Everyone on the back seat, e.g. "ป้าศรี · พี่ต้น".</summary>
+    public string RiderNames
+    {
+        get
+        {
+            var l = new List<string>();
+            foreach (var r in riders) { var d = Ghosts.Get(r); if (d != null) l.Add(d.name); }
+            return string.Join(" · ", l);
+        }
+    }
+
+    public void Board(PassengerId id)
+    {
+        if (riders.Contains(id)) return;
+        riders.Add(id);
+        if (riders.Count == 1) calm = 70f;
+        var d = Ghosts.Get(id);
+        if (d != null) { Flag(d.key); EventPoint.CloseStage(d.stage, d.key); }
     }
 
     /// <summary>22:00 -> 05:30 mapped onto the night clock.</summary>
@@ -82,7 +104,7 @@ public class RideGame : MonoBehaviour
         float before = calm;
         calm = Mathf.Clamp(calm + d, 0f, 100f);
         int diff = Mathf.RoundToInt(calm - before);
-        if (diff != 0) Toast(PassengerName + (diff > 0 ? " สงบขึ้น +" : " หวั่นใจ ") + diff);
+        if (diff != 0) Toast((riders.Count > 1 ? "ผู้โดยสาร" : PassengerName) + (diff > 0 ? " สงบขึ้น +" : " หวั่นใจ ") + diff);
     }
 
     public void AddMerit(int n)

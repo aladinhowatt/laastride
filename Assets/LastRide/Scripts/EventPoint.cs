@@ -13,6 +13,8 @@ public class EventPoint : WorldAnchor
     public static EventPoint Current;      // the point the player may use right now (for the HUD prompt)
 
     public string id;
+    public int stage = -1;               // route stage this event belongs to (ghost spots: only one ghost per stage)
+    public SpriteRenderer figure;        // the waiting ghost
     public string prompt = "พูดคุย";
     public Func<DScript> script;
     public SpriteRenderer marker;
@@ -25,6 +27,13 @@ public class EventPoint : WorldAnchor
 
     void OnEnable() { All.Add(this); }
     void OnDisable() { All.Remove(this); if (Current == this) Current = null; }
+
+    /// <summary>A ghost boarded: the other ghost of that stage waits for another night.</summary>
+    public static void CloseStage(int stage, string exceptKey)
+    {
+        foreach (var e in All)
+            if (e.stage == stage && e.id != exceptKey && !e.done) { e.done = true; }
+    }
 
     public bool InZone(RideGame g) { return g.distance > worldX - zoneBack && g.distance < worldX + zoneFront; }
 
@@ -40,6 +49,13 @@ public class EventPoint : WorldAnchor
             marker.enabled = showMarker;
             bobT += Time.deltaTime;
             marker.transform.localPosition = new Vector3(0, markerHeight + (Mathf.Sin(bobT * 4f) > 0 ? 1f / 16f : 0f), 0);
+        }
+
+        if (figure != null)
+        {
+            figure.enabled = !done && rel < 26f && rel > -10f;
+            figure.color = new Color(1f, 1f, 1f, 0.7f + 0.15f * Mathf.Sin(bobT * 2f));
+            figure.transform.localPosition = new Vector3(1.6f, 0.2f + Mathf.Sin(bobT * 2f) * 0.0625f, 0);
         }
 
         bool usable = !done && g.state == RideState.Driving && InZone(g) && g.speed < stopSpeed;

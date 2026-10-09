@@ -11,7 +11,8 @@ public class DialogueUI : MonoBehaviour
 
     GameObject root;
     CanvasGroup group;
-    Image backdrop, portrait, portraitFrame, nameTag;
+    Image backdrop, portrait, portraitFrame, nameTag, leftFrame, leftPortrait;
+    string lastOther;
     TextMeshProUGUI nameText, bodyText, indicator;
     RectTransform choiceBox;
     Image choicePanel, arrow;
@@ -64,11 +65,18 @@ public class DialogueUI : MonoBehaviour
         backdrop = UIKit.Img("backdrop", transform, null, Color.white);
         UIKit.Stretch(backdrop.rectTransform);
 
-        // portrait (right side)
+        // portrait of whoever we talk to (right side)
         portraitFrame = UIKit.Img("portraitFrame", transform, panelSprite, new Color(1, 1, 1, 0.95f), true);
         UIKit.Place(portraitFrame.rectTransform, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-48, 200), new Vector2(230, 230));
         portrait = UIKit.Img("portrait", portraitFrame.transform, null, Color.white);
         UIKit.Place(portrait.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(192, 192));
+
+        // protagonist portrait (left side)
+        leftFrame = UIKit.Img("leftFrame", transform, panelSprite, new Color(1, 1, 1, 0.95f), true);
+        UIKit.Place(leftFrame.rectTransform, new Vector2(0, 0), new Vector2(0, 0), new Vector2(48, 200), new Vector2(230, 230));
+        leftPortrait = UIKit.Img("leftPortrait", leftFrame.transform, null, Color.white);
+        UIKit.Place(leftPortrait.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(192, 192));
+        leftFrame.gameObject.SetActive(false);
 
         // name tag
         nameTag = UIKit.Img("nameTag", transform, panelSprite, Color.white, true);
@@ -101,6 +109,7 @@ public class DialogueUI : MonoBehaviour
     {
         var g = RideGame.I;
         script = s;
+        lastOther = null;
         g.SetState(RideState.Dialogue);
         Sprite bg;
         if (bd.TryGetValue(s.backdrop, out bg)) backdrop.sprite = bg;
@@ -115,15 +124,36 @@ public class DialogueUI : MonoBehaviour
         node = script.nodes[key];
         if (node.onEnter != null) node.onEnter();
 
-        // speaker
+        // speaker: the driver (lung) stands on the left, the person he talks to on the right
         bool hasName = !string.IsNullOrEmpty(node.speaker);
         nameTag.gameObject.SetActive(hasName);
         nameText.text = ThaiText.Fix(node.speaker);
+        bool lungSpeaks = node.portrait == "lung";
+        var nr = nameTag.rectTransform;
+        if (lungSpeaks) UIKit.Place(nr, new Vector2(0, 0), new Vector2(0, 0), new Vector2(48, 186), new Vector2(230, 46));
+        else UIKit.Place(nr, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-48, 186), new Vector2(230, 46));
 
         Sprite p;
         bool hasPortrait = !string.IsNullOrEmpty(node.portrait) && portraits.TryGetValue(node.portrait, out p);
-        portraitFrame.gameObject.SetActive(hasPortrait);
-        if (hasPortrait) portrait.sprite = portraits[node.portrait];
+        if (hasPortrait && !lungSpeaks) lastOther = node.portrait;
+        var dim = new Color(0.5f, 0.5f, 0.55f, 0.95f);
+        var lit = new Color(1, 1, 1, 0.95f);
+
+        bool showRight = hasPortrait && lastOther != null;       // narration shows no portraits
+        portraitFrame.gameObject.SetActive(showRight);
+        if (showRight)
+        {
+            portrait.sprite = portraits[lastOther];
+            portraitFrame.color = lungSpeaks ? dim : lit; portrait.color = lungSpeaks ? dim : Color.white;
+        }
+        Sprite lp;
+        bool showLeft = hasPortrait && portraits.TryGetValue("lung", out lp) && (lungSpeaks || lastOther != null);
+        leftFrame.gameObject.SetActive(showLeft);
+        if (showLeft)
+        {
+            leftPortrait.sprite = portraits["lung"];
+            leftFrame.color = lungSpeaks ? lit : dim; leftPortrait.color = lungSpeaks ? Color.white : dim;
+        }
 
         bodyText.text = ThaiText.Fix(node.text);
         bodyText.maxVisibleCharacters = 0;

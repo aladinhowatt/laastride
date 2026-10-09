@@ -50,16 +50,20 @@ public class TukTukController : MonoBehaviour
             if (brk) g.speed -= g.brake * dt;
             g.speed = Mathf.Clamp(g.speed, 0f, cap);
 
-            // keep behind whatever is in front
+            // keep behind whatever is in front; flooring it into a car crashes
             float front = g.distance + RideGame.TukLength * 0.5f;
             float gap;
             var b = RoadBlocker.NearestAhead(front, out gap);
+            crashCd -= dt;
             if (b != null && gap < 6f)
             {
-                float allowed = Mathf.Max(0f, b.speed) + Mathf.Max(0f, gap - 0.25f) * 2.2f;
                 float closing = g.speed - b.speed;
-                if (gap < 1.2f && closing > 3.2f && bumpCd <= 0f) Bump();
-                if (g.speed > allowed) g.speed = Mathf.MoveTowards(g.speed, allowed, 16f * dt);
+                if (gas && b is LeadCar && gap < 0.4f && closing > 1f && crashCd <= 0f) { Crash(b); return; }
+                if (!gas || !(b is LeadCar))
+                {
+                    float allowed = Mathf.Max(0f, b.speed) + Mathf.Max(0f, gap - 0.25f) * 2.2f;
+                    if (g.speed > allowed) g.speed = Mathf.MoveTowards(g.speed, allowed, 16f * dt);
+                }
             }
 
             if (honk && honkCd <= 0f) Honk();
@@ -104,6 +108,20 @@ public class TukTukController : MonoBehaviour
         if (g.passenger != PassengerId.None) g.AddCalm(-1f);
     }
 
+    float crashCd = 8f;
+
+    /// <summary>Rear-ended the car in front: stop, get out and sort it out (costs time).</summary>
+    void Crash(RoadBlocker b)
+    {
+        crashCd = 30f;
+        shake = 0.4f;
+        if (sfxSrc != null) sfxSrc.PlayOneShot(ChipAudio.Honk(), 0.9f);
+        g.speed = 0f;
+        g.distance = b.RearX - RideGame.TukLength * 0.5f - 1.2f;       // step back out of the other car
+        g.AddCalm(-8f);
+        if (DialogueUI.Instance != null) DialogueUI.Instance.Play(Story.Crash());
+    }
+
     void Bump()
     {
         bumpCd = 1.5f;
@@ -134,7 +152,8 @@ public class TukTukController : MonoBehaviour
         ghost.enabled = has;
         if (has)
         {
-            var gs = g.passenger == PassengerId.Sri ? ghostSri : ghostTon;
+            var gd = Ghosts.Get(g.passenger);
+            var gs = gd != null && gd.female ? ghostSri : ghostTon;
             if (ghost.sprite != gs) SpriteMats.Apply(ghost, gs);
             float f = 0.82f + 0.12f * Mathf.Sin(Time.time * 2.2f);
             ghost.color = new Color(1f, 1f, 1f, f * Mathf.Lerp(0.55f, 1f, g.calm / 100f));

@@ -217,7 +217,7 @@ public class HudUI : MonoBehaviour
         calmLabel.color = has ? UIKit.Cream : new Color(UIKit.Cream.r, UIKit.Cream.g, UIKit.Cream.b, 0.45f);
 
         lcdPlace.text = ThaiText.Fix(RouteRegions.All[RouteRegions.IndexAt(g.distance)].title);
-        lcdInfo.text = ThaiText.Fix((has ? g.PassengerName : "รถว่าง") + "   บุญ " + g.merit);
+        lcdInfo.text = ThaiText.Fix((has ? g.RiderNames : "รถว่าง") + "   บุญ " + g.merit);
 
         float sp = Mathf.Clamp01(g.speed / g.maxSpeed);
         for (int i = 0; i < speedSegs.Length; i++)

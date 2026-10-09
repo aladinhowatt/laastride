@@ -162,7 +162,7 @@ public class RideBootstrap : MonoBehaviour
     }
 
     // ---- decoration along the road ------------------------------------------------------------
-    static readonly float[] EventXs = { 60, 170, 330, 520, 700, 1000, 1300 };
+    static readonly float[] EventXs = { 60, 170, 225, 330, 450, 520, 665, 800, 880, 975, 1070, 1125, 1300 };
 
     bool NearEvent(float x)
     {
@@ -225,13 +225,36 @@ public class RideBootstrap : MonoBehaviour
         return ev;
     }
 
+    /// <summary>A waiting ghost: only one ghost per stage can get in, so the player chooses.</summary>
+    EventPoint MakeGhost(PassengerId id, float x, Sprite prop)
+    {
+        var d = Ghosts.Get(id);
+        var ev = MakeEvent(d.key, x, prop, "คุยกับ" + d.name, () => Story.Passenger(id));
+        ev.stage = d.stage;
+        var fig = Sr(ev.transform, "figure", S(d.female ? "ghost_sri" : "ghost_ton"), 3, new Vector3(1.6f, 0.2f, 0f));
+        fig.transform.localScale = new Vector3(1.5f, 1.5f, 1f);
+        ev.figure = fig;
+        ev.CacheRenderers();
+        return ev;
+    }
+
     void BuildEvents()
     {
-        MakeEvent("sri", 60, Ev("yao_stall", "cart"), "คุยกับป้าข้างรถเข็น", Story.PassengerSri);
+        // stage 1 Yaowarat: ป้าศรี or อาแปะเฮง
+        MakeGhost(PassengerId.Sri, 60, Ev("yao_stall", "cart"));
         MakeEvent("shrine", 170, Ev("spirit_house", "shrine"), "ไหว้ศาลพระภูมิ", Story.Shrine);
-        MakeEvent("ton", 330, Ev("ayu_banyan_head", "banyan"), "คุยกับคนข้างวัดเก่า", Story.PassengerTon);
-        MakeEvent("gas", 700, Ev("gas_station", "gas"), "แวะปั๊ม", Story.GasStation);
-        MakeEvent("stall", 1000, Ev("roadside_shop", "shop"), "แวะร้านชำ", Story.DrinkStall);
+        MakeGhost(PassengerId.Heng, 225, null);
+        // stage 2 Ayutthaya: พี่ต้น or น้องมายด์
+        MakeGhost(PassengerId.Ton, 330, Ev("ayu_banyan_head", "banyan"));
+        MakeGhost(PassengerId.Mai, 450, null);
+        // stage 3 Sukhothai: ครูบัว or พี่นก
+        MakeGhost(PassengerId.Bua, 665, Ev("suk_columns", "banyan"));
+        MakeGhost(PassengerId.Nok, 800, Ev("suk_lotus", "banyan"));
+        MakeEvent("gas", 880, Ev("gas_station", "gas"), "แวะปั๊ม", Story.GasStation);
+        // stage 4 the northern road: ยายคำ or ต๋อง
+        MakeGhost(PassengerId.Khum, 975, Ev("north_house", "shop"));
+        MakeGhost(PassengerId.Tong, 1070, null);
+        MakeEvent("stall", 1125, Ev("roadside_shop", "shop"), "แวะร้านชำ", Story.DrinkStall);
         var t = MakeEvent("temple", g.routeLength, null, "ขึ้นดอยสุเทพ", Story.Temple, 0);
         t.zoneFront = 9f; t.zoneBack = 5f;
 
@@ -351,7 +374,7 @@ public class RideBootstrap : MonoBehaviour
         bds["ayutthaya"] = Pick("cut_ayutthaya", "cut_banyan");
         bds["suthep"] = Pick("cut_suthep", "cut_temple");
         var pts = new Dictionary<string, Sprite>();
-        foreach (var k in new[] { "lung", "sri", "ton", "gas", "vendor" }) pts[k] = Pick("portrait_" + k, "portrait_" + k);
+        foreach (var k in new[] { "lung", "sri", "ton", "gas", "vendor", "police", "heng", "mai", "bua", "nok", "khum", "tong", "driver" }) pts[k] = Pick("portrait_" + k, "portrait_" + k);
         DialogueUI.Build(cgo.transform, sfx, S("ui_panel"), S("ui_arrow"), bds, pts);
     }
 }

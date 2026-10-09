@@ -1,49 +1,31 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>The car ahead: drives slow-fast-stop like real traffic. The player has to follow its rhythm.</summary>
+/// <summary>
+/// The car ahead: keeps a steady, slightly varying pace (never stops for no reason).
+/// It only stops where real traffic would: at a red light, or behind something blocking the road.
+/// </summary>
 public class LeadCar : RoadBlocker
 {
-    enum Mode { Cruise, Crawl, Stop, Leaving }
-
     public SpriteRenderer brakeLight;
     public Vector3 brakeLocal;
 
-    Mode mode = Mode.Cruise;
     float modeT, target;
-    Mode last = Mode.Cruise;
     bool leaving;
-    float stillT;
-
-    /// <summary>True while standing right at a stop line whose light is green (queue release).</summary>
-    static bool SignalBehind(float front)
-    {
-        var sg = TrafficSignal.NextAhead(front);
-        return sg != null && sg.phase == TrafficSignal.Phase.Green && sg.stopX - front < 4f;
-    }
 
     protected override void Awake()
     {
         base.Awake();
-        PickMode();
+        PickPace();
     }
 
-    public void Leave() { leaving = true; mode = Mode.Leaving; target = 13f; }
+    public void Leave() { leaving = true; target = 13f; }
 
-    void PickMode()
+    void PickPace()
     {
-        float r = Random.value;
-        Mode next;
-        if (last == Mode.Stop) next = r < 0.6f ? Mode.Cruise : Mode.Crawl;
-        else next = r < 0.5f ? Mode.Cruise : (r < 0.72f ? Mode.Crawl : Mode.Stop);
-        mode = next;
-        last = next;
-        switch (next)
-        {
-            case Mode.Cruise: target = Random.Range(4.5f, 7.2f); modeT = Random.Range(6f, 12f); break;
-            case Mode.Crawl: target = Random.Range(1.5f, 2.6f); modeT = Random.Range(4f, 7f); break;
-            default: target = 0f; modeT = Random.Range(2.6f, 4.6f); break;
-        }
+        bool slow = Random.value < 0.35f;
+        target = slow ? Random.Range(3.6f, 4.6f) : Random.Range(4.8f, 7.2f);
+        modeT = Random.Range(5f, 11f);
     }
 
     void Update()
@@ -52,15 +34,10 @@ public class LeadCar : RoadBlocker
         if (g == null) return;
         float dt = Time.deltaTime;
 
-        if (g.state == RideState.Dialogue) { /* traffic keeps rolling gently */ }
-
         if (!leaving)
         {
             modeT -= dt;
-            if (modeT <= 0f) PickMode();
-            // do not run away when the player is parked; hang back
-            float gap = worldX - g.distance;
-            if (gap > 20f) target = Mathf.Min(target, 2f);
+            if (modeT <= 0f) PickPace();
         }
 
         float prev = speed;
@@ -68,6 +45,8 @@ public class LeadCar : RoadBlocker
         if (!leaving)
         {
             float front = worldX + length * 0.5f;
+
+            // traffic light
             var sig = TrafficSignal.NextAhead(front);
             if (sig != null && sig.ShouldStop(front, speed))
             {
@@ -75,17 +54,17 @@ public class LeadCar : RoadBlocker
                 float limit = dStop <= 0.02f ? 0f : Mathf.Sqrt(2f * 4.5f * dStop);     // brake so as to stop exactly at the line
                 eff = Mathf.Min(eff, limit);
             }
+
+            // something blocking the road ahead (the buffalo): queue behind it
+            for (int i = 0; i < All.Count; i++)
+            {
+                var o = All[i];
+                if (o == this || !o.blocking) continue;
+                float d = o.RearX - front;
+                if (d < 0f || d > 14f) continue;
+                eff = Mathf.Min(eff, Mathf.Max(0f, o.speed) + Mathf.Max(0f, d - 1.5f) * 1.2f);
+            }
         }
-        // never sit still on a green: once the light lets us go, pull away promptly (and never stall for long)
-        bool held = false;
-        if (!leaving)
-        {
-            var sg = TrafficSignal.NextAhead(worldX + length * 0.5f);
-            held = sg != null && sg.phase != TrafficSignal.Phase.Green && sg.ShouldStop(worldX + length * 0.5f, speed);
-        }
-        stillT = (speed < 0.05f && !held) ? stillT + dt : 0f;
-        if (!leaving && !held && (stillT > 2.5f || (mode == Mode.Stop && modeT > 1.5f && SignalBehind(worldX + length * 0.5f)))) { mode = Mode.Cruise; target = Random.Range(4.5f, 6.5f); modeT = Random.Range(5f, 9f); stillT = 0f; }
-        if (!held && !leaving) eff = Mathf.Max(eff, SignalBehind(worldX + length * 0.5f) ? 3.5f : 0f);
         speed = Mathf.MoveTowards(speed, eff, (eff < speed ? 7f : 3.2f) * dt);
         worldX += speed * dt;
 
@@ -96,7 +75,7 @@ public class LeadCar : RoadBlocker
         }
 
         float rel = worldX - g.distance;
-        if ((leaving && rel > 40f) || rel < -30f || rel > 70f) Destroy(gameObject);
+        if ((leaving && rel > 40f) || rel < -30f || rel > 90f) Destroy(gameObject);
     }
 }
 

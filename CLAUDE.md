@@ -30,6 +30,8 @@ Headless (Editor must be closed on the project, or use a copy): `Unity.exe -batc
 
 - Traffic & HUD: `TrafficSignal` (stop lines, 4 along the route, `RideBootstrap.BuildSignals`) — `LeadCar` obeys them, running a red calls `Story.Police()`. Motorcycles are scenery from `TrafficDirector.SpawnBike`. We drive in the UPPER lane (keep left); oncoming traffic is the lower lane drawn in front. The HUD is a bottom dashboard (`HudUI.BuildDashboard`, height `RideGameConst.DashPx`); the camera is lifted by `DashUnits` so the road sits above it.
 
+- Stages & ghosts: `Ghosts.cs` holds the 8 ghost passengers (2 per stage, text + portrait key + liked offering); `Story.Passenger(id)` builds their conversation, `RideGame.Board` adds a rider and closes the other ghost of that stage (`EventPoint.CloseStage`). `RideGame.riders` is the list (`passenger` = latest). Rear-ending the lead car while holding gas calls `TukTukController.Crash` -> `Story.Crash`. `LeadCar` only stops for red lights / blockers.
+
 ## Gotchas
 
 - `Camera.main` is reconfigured by `RideBootstrap` (orthographic, size 135/16).
